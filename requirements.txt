@@ -1,0 +1,15 @@
+
+# basics
+requests
+
+# others
+Pillow==6
+pyproj==2
+
+# cdsw needs a particular version of opencv to work
+opencv-python-headless==4.2.0.32
+
+# custom libs
+mapocr @ git+https://github.com/karimbahgat/mapocr
+maponyms @ git+https://github.com/karimbahgat/maponyms
+transformio @ git+https://github.com/karimbahgat/transformio
