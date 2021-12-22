@@ -3,8 +3,8 @@
 requests
 
 # others
-Pillow==6
-pyproj==2
+Pillow==6.*
+pyproj==2.*
 
 # cdsw needs a particular version of opencv to work
 opencv-python-headless==4.2.0.32
