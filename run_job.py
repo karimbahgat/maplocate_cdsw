@@ -50,12 +50,34 @@ def estimate_transform(controlpoints, **transform_options):
     fromx,fromy = zip(*frompoints)
     tox,toy = zip(*topoints)
 
-    # estimate the transform
-    trans = tio.transforms.Polynomial()
-    trans.fit(fromx, fromy, tox, toy)
+    # auto select best transform based on backwards pixel loo rmse
+    trytrans = [tio.transforms.Polynomial(order=1),
+                tio.transforms.Polynomial(order=2),
+                tio.transforms.Polynomial(order=3),
+                ]
+    result = tio.accuracy.auto_choose_model(topoints, 
+                                            frompoints, 
+                                            trytrans,
+                                            distance='euclidean',
+                                            metric='rmse',
+                                            )
+    backtrans,topoints,frompoints,predicted,residuals,err = result
+
+    # switch to forward transform
+    trans = backtrans.inverse()
     transdata = trans.to_json()
+
+    # create the final reduced set of controlpoints geojson
+    print(frompoints)
+    final_controlpoints = {'type':'FeatureCollection', 'features':[]}
+    for feat in controlpoints['features']:
+        frompoint = feat['properties']['origx'],feat['properties']['origy']
+        print(frompoint)
+        if frompoint in frompoints:
+            final_controlpoints['features'].append(feat)
+    print(final_controlpoints)
     
-    return transdata, controlpoints
+    return transdata, final_controlpoints
 
 def calculate_errors(controlpoints, transform, imsize, **error_options):
     import transformio as tio
@@ -79,7 +101,7 @@ def calculate_errors(controlpoints, transform, imsize, **error_options):
         [oxpred],[oypred] = back.predict([mx], [my])
         props['origx_pred'] = oxpred
         props['origy_pred'] = oypred
-        [oresid] = tio.accuracy.distances([ox], [oy], [oxpred], [oypred], 'eucledian')
+        [oresid] = tio.accuracy.distances([ox], [oy], [oxpred], [oypred], 'euclidean')
         props['origresidual'] = oresid
 
     # get the point residuals
@@ -92,12 +114,12 @@ def calculate_errors(controlpoints, transform, imsize, **error_options):
     errs['geographic'] = {}
     errs['geographic']['mae'] = tio.accuracy.MAE(resids_xy)
     errs['geographic']['rmse'] = tio.accuracy.RMSE(resids_xy)
-    errs['geographic']['max'] = float(max(resids_xy))
+    errs['geographic']['max'] = tio.accuracy.MAX(resids_xy)
     # then pixels
     errs['pixel'] = {}
     errs['pixel']['mae'] = tio.accuracy.MAE(resids_colrow)
     errs['pixel']['rmse'] = tio.accuracy.RMSE(resids_colrow)
-    errs['pixel']['max'] = float(max(resids_colrow))
+    errs['pixel']['max'] = tio.accuracy.MAX(resids_colrow)
     # then percent (of image pixel dims)
     errs['percent'] = {}
     diag = math.hypot(*imsize)
