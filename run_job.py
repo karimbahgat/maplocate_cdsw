@@ -187,29 +187,32 @@ def post_georef(url_host, pk, matched, final, transform, errors, bbox):
 
 def run_action(action, map_id, respond_to, **kwargs):
     # call the correct function
-    # upon completion, should submit/add the data to the maplocate website
-    # NOT FINISHED
-    # ... 
+    # upon completion, submits/adds the data to the maplocate website
     result = {}
     try:
-        iminfo = kwargs.pop('image')
-        priors = kwargs.pop('priors')
-
-        # TODO: full_toponym is not correct when editing, since it should use 
-        # everything including existing or manual toponyms
-        # now only uses the auto detected ones
-        # prob better with two stepwise calls from the website? 
-        # ...
+        iminfo = kwargs.pop('image', {})
+        priors = kwargs.pop('priors', {})
 
         if action in ('detect_toponyms','full_toponyms'):
             # post status
             post_status(respond_to, map_id, 'Processing', 'Performing toponym text label detection...')
             # get results
             toponyms = detect_toponyms(kwargs['url'], kwargs.get('text_options',{}), kwargs.get('toponym_options',{}))
-            priors['toponym_candidates'] = toponyms
             print(toponyms)
             # post toponyms
             post_toponyms(respond_to, map_id, toponyms)
+
+            if action == 'full_toponyms':
+                # fetch the newest toponyms from the website
+                # which is based on the posted auto detected ones merged with the manual ones
+                import requests
+                url = '{}/map/download/{}/toponyms/'.format(respond_to, map_id)
+                resp = requests.get(url)
+                toponyms = json.loads(resp.content)
+                # matching function expects a 'name' property
+                for feat in toponyms['features']:
+                    feat['properties']['name'] = feat['properties']['img_name']
+                priors['toponym_candidates'] = toponyms
 
         if action in ('georef_toponyms','full_toponyms'):
             # match + estimate toponyms in one step
